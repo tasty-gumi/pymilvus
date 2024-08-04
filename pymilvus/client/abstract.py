@@ -470,6 +470,9 @@ class SearchResult(list):
                 field2data[name] = json_dict_list, field_meta
                 continue
 
+            if dtype == DataType.GEOSPATIAL:
+                field2data[name] = scalars.geospatial_data.data[start:end],field_meta
+                
             if dtype == DataType.ARRAY:
                 topk_array_fields = scalars.array_data.data[start:end]
                 field2data[name] = (

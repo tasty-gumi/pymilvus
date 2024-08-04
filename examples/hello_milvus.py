@@ -15,10 +15,11 @@ from pymilvus import (
     FieldSchema, CollectionSchema, DataType,
     Collection,
 )
+from genwkt import generate_data
 
 fmt = "\n=== {:30} ===\n"
 search_latency_fmt = "search latency = {:.4f}s"
-num_entities, dim = 3000, 8
+num_entities, dim = 30, 8
 
 #################################################################################
 # 1. connect to Milvus
@@ -50,13 +51,15 @@ print(f"Does collection hello_milvus exist in Milvus: {has}")
 fields = [
     FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
     FieldSchema(name="random", dtype=DataType.DOUBLE),
-    FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
+    FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim),
+    FieldSchema(name="geospatial",dtype=DataType.GEOSPATIAL)
 ]
 
 schema = CollectionSchema(fields, "hello_milvus is the simplest demo to introduce the APIs")
 
 print(fmt.format("Create collection `hello_milvus`"))
 hello_milvus = Collection("hello_milvus", schema, consistency_level="Strong")
+print(f"The milvus describetion: {hello_milvus.describe()}")
 
 ################################################################################
 # 3. insert data
@@ -74,14 +77,17 @@ entities = [
     [str(i) for i in range(num_entities)],
     rng.random(num_entities).tolist(),  # field random, only supports list
     rng.random((num_entities, dim), np.float32),    # field embeddings, supports numpy.ndarray and list
+    generate_data(num_entities) #field geospatial,wkt list 
 ]
 
+print(entities)
 insert_result = hello_milvus.insert(entities)
 
 row = {
     "pk": "19530",
     "random": 0.5,
-    "embeddings": rng.random((1, dim), np.float32)[0]
+    "embeddings": rng.random((1, dim), np.float32)[0],
+    "geospatial": "POINT (-84.036 39.997)"
 }
 hello_milvus.insert(row)
 
@@ -116,14 +122,14 @@ hello_milvus.load()
 # -----------------------------------------------------------------------------
 # search based on vector similarity
 print(fmt.format("Start searching based on vector similarity"))
-vectors_to_search = entities[-1][-2:]
+vectors_to_search = entities[-2][-2:]
 search_params = {
     "metric_type": "L2",
     "params": {"nprobe": 10},
 }
 
 start_time = time.time()
-result = hello_milvus.search(vectors_to_search, "embeddings", search_params, limit=3, output_fields=["random"])
+result = hello_milvus.search(vectors_to_search, "embeddings", search_params, limit=3, output_fields=["geospatial"])
 end_time = time.time()
 
 for hits in result:
